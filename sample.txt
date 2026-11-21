@@ -1,6 +1,3 @@
-Two fixes, one check:
-
-Add a pending coverage class: a Terraform entry not live yet, or live count < Terraform count. Show terraform N / live M, don’t count it as covered, and include it in reservation_gaps.
-Compute latest for all reservable pools for the audit (map every pool’s MIG prefix from the existing cluster-wide node query; in mig mode, add their MIG names to the same query). For each zone/machine type, latest = the nodes of every pool that can consume it. Sizing stays in scope only.
-Check that an unmanaged row that is also short goes into reservation_gaps.
-Tests for each, all on Python 3.9. Then show me a report.json audit section from a fixture run.
+An unselected pool must never trigger fail-safe. History is now collected for all pools, so ask Copilot for one test: an unselected pool with poor history coverage (for example, created yesterday) gives exit 0, and the in-scope keys still get sized. Without this, a new out-of-scope pool could freeze the whole sizer.
+Fill in the Note column for unselected rows. It’s empty in the PR table. Something like “unselected: add to pools or poolExclude with a reason” tells the reviewer what to do.
+Zone c with 0 nodes and 0 reserved shows as a gap row. It’s correct as a scope issue, but once the pool is in scope it becomes NO_DEMAND. Fine as it is, just don’t be surprised by it.
