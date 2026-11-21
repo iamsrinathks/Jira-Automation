@@ -1,0 +1,8 @@
+Go ahead, with these rules:
+
+Add a coverage audit (report-only, no sizing for out-of-scope pools): every non-spot, non-NO_RESERVATION pool × zone, with its scope status (in scope / excluded + reason / unselected) and whether a reservation covers it. Show it in report.json, the PR body and a WARNING log line. Do not fail the run for unselected pools.
+Add poolExclude as a map of pool → reason (glob keys allowed). An exclude without a reason is a config error (exit 4).
+Keep pools / poolLabels with fnmatch globs so new pools are included by default. Exclude wins over include.
+Before enabling wildcards: in fast_check(), only judge uncovered pools when createMissingKeys is true (avoid repeated full runs), with a test.
+Tests for: unselected pool reported, excluded pool with reason, exclude-without-reason rejected, glob include + exclude precedence, spot/NO_RESERVATION never listed, zone gap (pool in 3 zones, keys in 2). All existing tests must still pass on Python 3.9.
+Read the current policy first, but keep policy file changes for the separate cluster-automation PR.
