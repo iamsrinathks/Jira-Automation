@@ -1,7 +1,6 @@
-Good work. Three follow-ups:
+Two fixes, one check:
 
-In the audit, split “covered” into: covered (reserved ≥ latest nodes), partially covered (reserved < latest nodes, show both numbers), covered by unmanaged reservation (live but not in Terraform), and not consumable (reuse consume_blockers()).
-Flag unselected/excluded pools with ANY affinity on an in-scope machine type in the same zone as “consumes in-scope reservation <name>“.
-Add tests for both, then run all tests on Python 3.9.
-
-For the cluster-automation PR: list which pools *-knp01-* matches, and use exact names (not gen*) in poolExclude. I’ll confirm ded, gen*, r600*, hn01 and ccp01 with their owners first.
+Add a pending coverage class: a Terraform entry not live yet, or live count < Terraform count. Show terraform N / live M, don’t count it as covered, and include it in reservation_gaps.
+Compute latest for all reservable pools for the audit (map every pool’s MIG prefix from the existing cluster-wide node query; in mig mode, add their MIG names to the same query). For each zone/machine type, latest = the nodes of every pool that can consume it. Sizing stays in scope only.
+Check that an unmanaged row that is also short goes into reservation_gaps.
+Tests for each, all on Python 3.9. Then show me a report.json audit section from a fixture run.
