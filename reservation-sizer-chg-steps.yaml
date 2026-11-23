@@ -1,0 +1,57 @@
+# Steps to ADD to the existing reservation-sizer pipeline, after the sizer step (prd only).
+# They raise the CHG for a NEW/changed bot PR and lock the PR. SAMPLE - adapt names and
+# your CHG template; check the ServiceNowCreate fields against your Harness version.
+#
+# The sizer step must export (from <out-dir>/pr.json, added by the Copilot change):
+#   PR_NUMBER, HEAD_SHA, PR_PUSHED (true when this run pushed a commit), PR_LOCKED, PR_URL
+# e.g. at the end of the sizer step's script:
+#   PR_NUMBER=$(jq -r '.number // ""' sizer-out/pr.json); HEAD_SHA=$(jq -r '.head_sha // ""' sizer-out/pr.json)
+#   PR_PUSHED=$(jq -r '.pushed' sizer-out/pr.json);      PR_LOCKED=$(jq -r '.locked' sizer-out/pr.json)
+#   PR_URL=$(jq -r '.url // ""' sizer-out/pr.json)
+- step:
+    type: ServiceNowCreate
+    name: raise CHG for the bot PR
+    identifier: create_chg
+    timeout: 5m
+    when:
+      stageStatus: Success
+      condition: <+pipeline.variables.env_name> == "prd" && <+execution.steps.sizer.output.outputVariables.PR_PUSHED> == "true" && <+execution.steps.sizer.output.outputVariables.PR_LOCKED> != "true"
+    spec:
+      connectorRef: <servicenow_connector>
+      ticketType: change_request
+      useServiceNowTemplate: true
+      templateName: "<your standard-change template for GKE reservation increases>"
+      fields:
+        - name: short_description
+          value: "GKE reservation increase - <+pipeline.variables.cluster_name> (PR #<+execution.steps.sizer.output.outputVariables.PR_NUMBER>)"
+        - name: description
+          value: |
+            Automated reservation sizing (increase only, max +3 per key, CI-guarded).
+            PR: <+execution.steps.sizer.output.outputVariables.PR_URL>
+            head_sha=<+execution.steps.sizer.output.outputVariables.HEAD_SHA>
+            Window: 22:00-06:00 Europe/London. Merged and applied by Harness reservation-merge.
+- step:
+    type: ShellScript
+    name: lock PR for the CHG
+    identifier: lock_pr
+    timeout: 5m
+    when:
+      stageStatus: Success
+      condition: <+execution.steps.create_chg.status> == "SUCCEEDED"
+    spec:
+      shell: Bash
+      onDelegate: true
+      source:
+        type: Inline
+        spec:
+          script: |
+            set -euo pipefail
+            chg="<+execution.steps.create_chg.ticket.ticketNumber>"
+            curl -sSf -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              -X POST "<+pipeline.variables.github_api>/repos/<+pipeline.variables.github_repo>/issues/<+execution.steps.sizer.output.outputVariables.PR_NUMBER>/labels" \
+              -d "{\"labels\":[\"chg-locked\",\"chg:$chg\"]}" >/dev/null
+            echo "PR locked for $chg"
+      environmentVariables:
+        - name: GH_TOKEN
+          type: Secret
+          value: reservation_sizer_github_token
