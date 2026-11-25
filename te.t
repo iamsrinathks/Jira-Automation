@@ -1,19 +1,11 @@
-Part A looks right. For Part B, apply these rules as well:
-
-1. Stockout hold for DECREASE: fetch stockout hits from hist_start (the
-   same start as the cooldown history), not only the normal window. Use
-   these hits ONLY for the decrease hold. The increase "unmet" logic keeps
-   the normal window - don't change sizing.
-2. Any stockout hit for any pool on the key inside the cooldown ->
-   REDUCE_HELD, even if stockoutCapPerKey is 0.
-3. DRIFT on any key blocks every DECREASE, whatever noStacking is set to.
-   Don't change how increases behave with noStacking false.
-4. Fast path: after compute, change every DECREASE row to REDUCE_HELD with
-   the note "fast path never reduces" and proposed = current. If nothing
-   is left to change, raise no PR.
-5. PENDING_DECREASE: keep it out of holds (no exit 3). Show it in the PR
-   body and report.json, and show it as "pending" in the coverage audit,
-   not "partial".
-
-Add tests for each of these, plus: cooldown coverage below
-minDataCoverage -> no reduction and exit 0, not 2.
+PENDING_DECREASE lookup: does it check the last merged bot PR, and does a GitHub error fall back to DRIFT?
+CI label rule: does a decrease need the reservation-reduce label? Are new = 0 and key removal still rejected?
+Second stockout fetch:
+Is it skipped when reduceCooldownDays is 0? If not, it's extra Logging API calls for nothing.
+If that fetch fails, are decreases held (fine) or does it trigger the fail-safe (too strict)?
+The fast path drops a pending decrease: if the daily run put a decrease in the open bot PR and a fast run then updates that PR, the decrease disappears until the next daily run. That's safe (it errs towards more capacity), but the PR body should say so.
+The design question: where does CI get the policy file?
+--policy FILE means the CI on the Terraform repo must read the sizer policy.
+But the policy now lives in the ACM addon Helm values (lcp-gcp-gke-acm-addons), so CI on the other repo can't see it unless you copy it.
+Don't let the bot's PR supply the step size. The bot would be setting its own limit.
+Simplest option: set --allow-decrease --max-step-down 2 in the Terraform repo's CI, per env, and only for tr1-pre for now. Keep it matching the Helm values by hand. That's two places, but each is human-owned.
